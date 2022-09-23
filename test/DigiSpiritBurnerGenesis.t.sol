@@ -24,12 +24,12 @@ contract DigiSpiritBurnerTest is Test {
 
         vm.startPrank(testUser);
 
-        assert(!burner.genesisDeposited(testToken));
+        assert(!burner.genesisIsDeposited(testToken));
 
         genesisToken.approve(address(burner), testToken);
         burner.depositGenesis(testToken, 1e18);
 
-        assert(burner.genesisDeposited(testToken));
+        assert(burner.genesisIsDeposited(testToken));
         assert(genesisToken.ownerOf(testToken) == address(burner));
         assert(burner.heroFee(testToken) == 1e18);
 
@@ -39,12 +39,12 @@ contract DigiSpiritBurnerTest is Test {
     function testGenesisWithdrawal() public {
         vm.startPrank(testUser);
 
-        assert(burner.genesisDeposited(testToken));
+        assert(burner.genesisIsDeposited(testToken));
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
         burner.withdrawGenesis(testToken);
 
-        assert(!burner.genesisDeposited(testToken));
+        assert(!burner.genesisIsDeposited(testToken));
         assert(genesisToken.ownerOf(testToken) == testUser);
 
         vm.stopPrank();

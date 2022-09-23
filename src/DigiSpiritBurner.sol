@@ -87,7 +87,6 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @param tokenId ID of spirit to be deposited into the contract
      */
     function depositSpirit(uint16 tokenId) external {
-        require(spiritToken.areAdventuresApprovedForAll(_msgSender(), address(this)), "Must approve contract for adventure first");
         spiritToken.transferFrom(_msgSender(), address(this), tokenId);
         _spiritOwner[tokenId] = _msgSender();
 
@@ -108,6 +107,8 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @param genesisId ID of the genesis token to be used
      */
     function enterHeroQuest(uint16 spiritId, uint16 genesisId) external onlySpiritOwner(spiritId) {
+        genesisToken.approve(address(adventure), genesisId);
+        spiritToken.setAdventuresApprovedForAll(address(adventure), true);
         adventure.enterQuest(spiritId, genesisId);
         _spiritGenesisAdventurePair[spiritId] = genesisId;
     }
