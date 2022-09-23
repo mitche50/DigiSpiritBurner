@@ -131,6 +131,37 @@ contract DigiSpiritBurnerTest is Test {
         vm.stopPrank();
     }
 
+    function testGenesisFeeChange() public {
+        vm.startPrank(testUser);
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+
+        assert(burner.heroFee(testToken) == 1e18);
+
+        burner.updateGenesisFee(testToken, 2e18);
+
+        assert(burner.heroFee(testToken) == 2e18);
+    }
+
+    function testGenesisFeeChangeNotOwner() public {
+        vm.startPrank(testUser);
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+
+        vm.stopPrank();
+
+        vm.startPrank(badUser);
+
+        vm.expectRevert(bytes("Not original owner of genesis"));
+        burner.updateGenesisFee(testToken, 2e18);
+
+        vm.stopPrank();
+
+        assert(burner.heroFee(testToken) == 1e18);
+    }
+
     // TODO: Finish mint hero function and write tests
     // function testMintHero() public {
     //     vm.startPrank(testUser);
