@@ -20,7 +20,7 @@ contract DigiSpiritBurnerTest is Test {
     IWETH weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     function setUp() public {
-        burner = new DigiSpiritBurner(1e18);
+        burner = new DigiSpiritBurner();
     }
 
     function testGenesisDeposit() public {
@@ -29,10 +29,11 @@ contract DigiSpiritBurnerTest is Test {
         assert(!burner.genesisDeposited(testToken));
 
         genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken);
+        burner.depositGenesis(testToken, 1e18);
 
         assert(burner.genesisDeposited(testToken));
         assert(genesisToken.ownerOf(testToken) == address(burner));
+        assert(burner.heroFee(testToken) == 1e18);
 
         vm.stopPrank();
     }
@@ -40,10 +41,8 @@ contract DigiSpiritBurnerTest is Test {
     function testGenesisWithdrawal() public {
         vm.startPrank(testUser);
 
-        assert(!burner.genesisDeposited(testToken));
-
         genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken);
+        burner.depositGenesis(testToken, 1e18);
 
         assert(burner.genesisDeposited(testToken));
 
@@ -61,7 +60,7 @@ contract DigiSpiritBurnerTest is Test {
         assert(!burner.genesisDeposited(testToken));
 
         genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken);
+        burner.depositGenesis(testToken, 1e18);
 
         assert(burner.genesisDeposited(testToken));
 
@@ -132,24 +131,25 @@ contract DigiSpiritBurnerTest is Test {
         vm.stopPrank();
     }
 
-    function testMintHero() public {
-        vm.startPrank(testUser);
+    // TODO: Finish mint hero function and write tests
+    // function testMintHero() public {
+    //     vm.startPrank(testUser);
 
-        // deposit genesis
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken);
+    //     // deposit genesis
+    //     genesisToken.approve(address(burner), testToken);
+    //     burner.depositGenesis(testToken, 1e18);
         
-        // deposit spirit
-        spiritToken.approve(address(burner), testToken);
-        spiritToken.setAdventuresApprovedForAll(address(burner), true);
-        burner.depositSpirit(testToken);
+    //     // deposit spirit
+    //     spiritToken.approve(address(burner), testToken);
+    //     spiritToken.setAdventuresApprovedForAll(address(burner), true);
+    //     burner.depositSpirit(testToken);
 
-        // //wrap ETH
-        weth.deposit{value:1e18}();
-        weth.approve(address(burner), 1e18);
+    //     // //wrap ETH
+    //     weth.deposit{value:1e18}();
+    //     weth.approve(address(burner), 1e18);
 
-        burner.mintHero(testToken, testToken);
+    //     burner.mintHero(testToken, testToken);
 
-    }
+    // }
     
 }

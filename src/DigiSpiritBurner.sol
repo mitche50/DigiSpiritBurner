@@ -11,7 +11,7 @@ contract DigiSpiritBurner is AdventurePermissions {
     DigiDaigakuSpirits spiritToken = DigiDaigakuSpirits(0xa8824EeE90cA9D2e9906D377D36aE02B1aDe5973);
     ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    uint256 public heroFee;
+    mapping(uint16 => uint256) public heroFee;
 
     mapping(uint16 => bool) public genesisDeposited;
     mapping(uint16 => address) private _genesisOwner;
@@ -25,25 +25,17 @@ contract DigiSpiritBurner is AdventurePermissions {
     event HeroMinted(uint16 spiritId, address owner);
 
 
-    constructor(uint256 fee) {
-        heroFee = fee;
+    constructor() {
     }
-
-    /**
-     * @notice Helper function to determine if a tokenId is mythic genesis
-     * @param tokenId ID of genesis token
-     */
-     function _isMythic(uint16 tokenId) internal pure returns (bool){
-        return (tokenId == 1632 || tokenId == 1938 || tokenId == 628 || tokenId == 379 || tokenId == 974);
-     }
 
     /**
      * @notice Deposits genesis token into contract for "purposes"
      * @param tokenId ID of genesis token to deposit
      */
-    function depositGenesis(uint16 tokenId) external {
+    function depositGenesis(uint16 tokenId, uint256 fee) external {
         genesisToken.transferFrom(_msgSender(), address(this), tokenId);
         _genesisOwner[tokenId] = _msgSender();
+        heroFee[tokenId] = fee;
         genesisDeposited[tokenId] = true;
 
         emit GenesisDeposited(tokenId, _msgSender());
@@ -94,14 +86,8 @@ contract DigiSpiritBurner is AdventurePermissions {
         require(_msgSender() == _spiritOwner[spiritId], "Only Owner of spirit NFT can mint");
         require(genesisDeposited[genesisId], "Genesis not in contract");
 
-        // If minting from a mythic, 10x hero minting fee
-        uint256 finalFee = heroFee;
-        if (_isMythic(genesisId)){
-            finalFee *= 10;
-        }
-        
         // Transfer wETH Fee to Genesis Holder
-        weth.transferFrom(_msgSender(), _genesisOwner[genesisId], heroFee);
+        weth.transferFrom(_msgSender(), _genesisOwner[genesisId], heroFee[genesisId]);
         
         //TODO: confirm correct function to use
         spiritToken.adventureBurn(spiritId);
