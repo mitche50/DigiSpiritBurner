@@ -19,8 +19,9 @@ contract DigiSpiritBurner is AdventurePermissions {
     mapping(uint16 => address) private _spiritOwner;
     mapping(uint16 => uint16) private _heroId;
 
-    event GenesisDeposited(uint16 tokenId, address owner);
+    event GenesisDeposited(uint16 tokenId, address owner, uint256 fee);
     event GenesisWithdrawn(uint16 tokenId, address owner);
+    event GenesisFeeUpdated(uint16 tokenId, uint256 oldFee, uint256 newFee);
     event SpiritDeposited(uint16 tokenId, address owner);
     event HeroMinted(uint16 spiritId, address owner);
 
@@ -31,6 +32,7 @@ contract DigiSpiritBurner is AdventurePermissions {
     /**
      * @notice Deposits genesis token into contract for "purposes"
      * @param tokenId ID of genesis token to deposit
+     * @param fee Fee to charge users for breeding with your genesis NFT
      */
     function depositGenesis(uint16 tokenId, uint256 fee) external {
         genesisToken.transferFrom(_msgSender(), address(this), tokenId);
@@ -38,7 +40,7 @@ contract DigiSpiritBurner is AdventurePermissions {
         heroFee[tokenId] = fee;
         genesisDeposited[tokenId] = true;
 
-        emit GenesisDeposited(tokenId, _msgSender());
+        emit GenesisDeposited(tokenId, _msgSender(), fee);
     }
 
     /**
@@ -49,10 +51,24 @@ contract DigiSpiritBurner is AdventurePermissions {
         require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
         genesisToken.transferFrom(address(this), _msgSender(), tokenId);
         _genesisOwner[tokenId] = address(0);
+        heroFee[tokenId] = 0;
         genesisDeposited[tokenId] = false;
 
         emit GenesisWithdrawn(tokenId, _msgSender());
     }
+
+    /**
+     * @notice Update the fee associated with your Genesis token
+     * @param tokenId ID of the genesis token to update fee for
+     * @param newFee New fee to set
+     */
+     function updateGenesisFee(uint16 tokenId, uint256 newFee) external {
+        require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
+        uint256 oldFee = heroFee[tokenId];
+        heroFee[tokenId] = newFee;
+
+        emit GenesisFeeUpdated(tokenId, oldFee, newFee);
+     }
 
     /**
      * @notice Deposits spirit token into contract
