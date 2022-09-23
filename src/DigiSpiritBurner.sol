@@ -29,6 +29,16 @@ contract DigiSpiritBurner is AdventurePermissions {
     constructor() {
     }
 
+    modifier onlyGenesisOwner(uint16 tokenId) {
+        require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
+        _;
+    }
+
+    modifier onlySpiritOwner(uint16 tokenId) {
+        require(_msgSender() == _spiritOwner[tokenId], "Not original owner of spirit");
+        _;
+    }
+
     /**
      * @notice Deposits genesis token into contract for "purposes"
      * @param tokenId ID of genesis token to deposit
@@ -47,8 +57,7 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @notice Withdraw Genesis token
      * @param tokenId ID of the genesis token to be withdrawn
      */
-    function withdrawGenesis(uint16 tokenId) external {
-        require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
+    function withdrawGenesis(uint16 tokenId) external onlyGenesisOwner(tokenId) {
         genesisToken.transferFrom(address(this), _msgSender(), tokenId);
         _genesisOwner[tokenId] = address(0);
         heroFee[tokenId] = 0;
@@ -62,8 +71,7 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @param tokenId ID of the genesis token to update fee for
      * @param newFee New fee to set
      */
-     function updateGenesisFee(uint16 tokenId, uint256 newFee) external {
-        require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
+     function updateGenesisFee(uint16 tokenId, uint256 newFee) external onlyGenesisOwner(tokenId) {
         uint256 oldFee = heroFee[tokenId];
         heroFee[tokenId] = newFee;
 
@@ -86,8 +94,7 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @notice Withdraw an unspent spirit
      * @param tokenId ID of the token to be burnt for a hero
      */
-    function withdrawSpirit(uint16 tokenId) external {
-        require(_msgSender() == _spiritOwner[tokenId], "Not original owner of spirit");
+    function withdrawSpirit(uint16 tokenId) external onlySpiritOwner(tokenId) {
         spiritToken.transferFrom(address(this), _msgSender(), tokenId);
     }
 
@@ -98,8 +105,7 @@ contract DigiSpiritBurner is AdventurePermissions {
      * @param spiritId ID of the spirit token to be burnt for a hero
      * @param genesisId ID of the genesis token to be used
      */
-    function mintHero(uint16 spiritId, uint16 genesisId) external {
-        require(_msgSender() == _spiritOwner[spiritId], "Only Owner of spirit NFT can mint");
+    function mintHero(uint16 spiritId, uint16 genesisId) external onlySpiritOwner(spiritId) {
         require(genesisDeposited[genesisId], "Genesis not in contract");
 
         // Transfer wETH Fee to Genesis Holder
