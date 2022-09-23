@@ -23,56 +23,6 @@ contract DigiSpiritBurnerTest is Test {
         burner = new DigiSpiritBurner();
     }
 
-    function testGenesisDeposit() public {
-        vm.startPrank(testUser);
-
-        assert(!burner.genesisDeposited(testToken));
-
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
-
-        assert(burner.genesisDeposited(testToken));
-        assert(genesisToken.ownerOf(testToken) == address(burner));
-        assert(burner.heroFee(testToken) == 1e18);
-
-        vm.stopPrank();
-    }
-
-    function testGenesisWithdrawal() public {
-        vm.startPrank(testUser);
-
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
-
-        assert(burner.genesisDeposited(testToken));
-
-        burner.withdrawGenesis(testToken);
-
-        assert(!burner.genesisDeposited(testToken));
-        assert(genesisToken.ownerOf(testToken) == testUser);
-
-        vm.stopPrank();
-    }
-
-    function testGenesisWithdrawNotOwner() public {
-        vm.startPrank(testUser);
-
-        assert(!burner.genesisDeposited(testToken));
-
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
-
-        assert(burner.genesisDeposited(testToken));
-
-        vm.stopPrank();
-
-        vm.startPrank(badUser);
-
-        vm.expectRevert(bytes("Not original owner of genesis"));
-        burner.withdrawGenesis(testToken);
-
-        vm.stopPrank();
-    }
 
     function testSpiritDeposit() public {
         vm.startPrank(testUser);
@@ -129,37 +79,6 @@ contract DigiSpiritBurnerTest is Test {
         burner.withdrawSpirit(testToken);
 
         vm.stopPrank();
-    }
-
-    function testGenesisFeeChange() public {
-        vm.startPrank(testUser);
-
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
-
-        assert(burner.heroFee(testToken) == 1e18);
-
-        burner.updateGenesisFee(testToken, 2e18);
-
-        assert(burner.heroFee(testToken) == 2e18);
-    }
-
-    function testGenesisFeeChangeNotOwner() public {
-        vm.startPrank(testUser);
-
-        genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
-
-        vm.stopPrank();
-
-        vm.startPrank(badUser);
-
-        vm.expectRevert(bytes("Not original owner of genesis"));
-        burner.updateGenesisFee(testToken, 2e18);
-
-        vm.stopPrank();
-
-        assert(burner.heroFee(testToken) == 1e18);
     }
 
     // TODO: Finish mint hero function and write tests
