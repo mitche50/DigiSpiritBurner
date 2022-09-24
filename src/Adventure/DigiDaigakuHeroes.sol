@@ -30,7 +30,7 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     string public suffixURI = ".json";
 
     /// @dev Whitelisted minter mapping
-    mapping (address => bool) public whitelistedMinters;
+    mapping(address => bool) public whitelistedMinters;
 
     /// @dev Emitted when base URI is set.
     event BaseURISet(string baseTokenURI);
@@ -45,7 +45,12 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     event MinterWhitelistUpdated(address indexed minter, bool whitelisted);
 
     /// @dev Emitted when a hero is minted
-    event MintHero(address indexed to, uint256 indexed tokenId, uint256 indexed genesisTokenId, uint256 timestamp);
+    event MintHero(
+        address indexed to,
+        uint256 indexed tokenId,
+        uint256 indexed genesisTokenId,
+        uint256 timestamp
+    );
 
     constructor() ERC721("DigiDaigakuHeroes", "DIHE") {
         unchecked {
@@ -53,19 +58,23 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
             // The bit corresponding to token id defaults to 1 when unminted,
             // and will be set to 0 upon mint.
             uint256 numberOfTokenTrackerSlots = getNumberOfTokenTrackerSlots();
-            for(uint256 i = 0; i < numberOfTokenTrackerSlots; ++i) {
+            for (uint256 i = 0; i < numberOfTokenTrackerSlots; ++i) {
                 mintedTokenTracker.push(MAX_UINT);
             }
         }
     }
-    
+
     modifier onlyMinter() {
         require(isMinterWhitelisted(_msgSender()), "Not a minter");
         _;
     }
 
     /// @notice Returns whether the specified account is a whitelisted minter
-    function isMinterWhitelisted(address account) public view returns (bool) {
+    function isMinterWhitelisted(address account)
+        public
+        view
+        returns (bool)
+    {
         return whitelistedMinters[account];
     }
 
@@ -76,29 +85,33 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
 
         emit MinterWhitelistUpdated(minter, true);
     }
-    
+
     /// @notice Removes a minter from the whitelist
     function unwhitelistMinter(address minter) external onlyOwner {
         require(whitelistedMinters[minter], "Not whitelisted");
         delete whitelistedMinters[minter];
 
         emit MinterWhitelistUpdated(minter, false);
-    }  
+    }
 
     /// @notice Allows whitelisted minters to mint a hero with the specified bloodline
-    function mintHero(address to, uint256 tokenId, uint256 genesisTokenId) external onlyMinter {
-        unchecked {            
+    function mintHero(address to, uint256 tokenId, uint256 genesisTokenId)
+        external
+        onlyMinter
+    {
+        unchecked {
             require(tokenId > 0, "Token id out of range");
             require(tokenId <= MAX_SUPPLY, "Token id out of range");
             require(genesisTokenId <= MAX_SUPPLY, "Genesis token id out of range");
-        
+
             uint256 slot = tokenId / 256;
             uint256 offset = tokenId % 256;
             uint256 slotValue = mintedTokenTracker[slot];
             require(((slotValue >> offset) & uint256(1)) == 1, "Token already minted");
 
             mintedTokenTracker[slot] = slotValue & ~(uint256(1) << offset);
-            bloodlines[tokenId - 1] = determineBloodline(tokenId, genesisTokenId);
+            bloodlines[tokenId - 1] =
+                determineBloodline(tokenId, genesisTokenId);
             emit MintHero(to, tokenId, genesisTokenId, block.timestamp);
         }
 
@@ -106,7 +119,13 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     }
 
     /// @dev Required to return baseTokenURI for tokenURI
-    function _baseURI() internal view virtual override returns (string memory) {
+    function _baseURI()
+        internal
+        view
+        virtual
+        override
+        returns (string memory)
+    {
         return baseTokenURI;
     }
 
@@ -125,7 +144,10 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     }
 
     /// @notice Sets royalty information
-    function setRoyaltyInfo(address receiver, uint96 feeNumerator) external onlyOwner {
+    function setRoyaltyInfo(address receiver, uint96 feeNumerator)
+        external
+        onlyOwner
+    {
         require(feeNumerator <= MAX_ROYALTY_FEE_NUMERATOR, "Exceeds max royalty fee");
         _setDefaultRoyalty(receiver, feeNumerator);
 
@@ -134,13 +156,23 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
 
     /// @notice Returns the bloodline of the specified hero token id.
     /// Throws if the token does not exist.
-    function getBloodline(uint256 tokenId) external view returns (Bloodlines.Bloodline) {
+    function getBloodline(uint256 tokenId)
+        external
+        view
+        returns (Bloodlines.Bloodline)
+    {
         require(_exists(tokenId), "Nonexistent token");
         return bloodlines[tokenId - 1];
     }
 
     /// @notice Returns tokenURI if baseURI is set
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
         require(_exists(tokenId), "Nonexistent token");
 
         string memory baseURI = _baseURI();
@@ -149,7 +181,13 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
             : "";
     }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override (AdventureERC721, ERC2981) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override (AdventureERC721, ERC2981)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 
@@ -157,10 +195,14 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     /// A rogue is created when only a spirit token was staked.
     /// A warrior is created when a spirit is staked with a genesis token and the token ids do not match.
     /// A royal is created when a spirit is staked with a genesis token and the token ids match.
-    function determineBloodline(uint256 tokenId, uint256 genesisTokenId) internal pure returns (Bloodlines.Bloodline) {
-        if(genesisTokenId == 0) {
+    function determineBloodline(uint256 tokenId, uint256 genesisTokenId)
+        internal
+        pure
+        returns (Bloodlines.Bloodline)
+    {
+        if (genesisTokenId == 0) {
             return Bloodlines.Bloodline.Rogue;
-        } else if(tokenId != genesisTokenId) {
+        } else if (tokenId != genesisTokenId) {
             return Bloodlines.Bloodline.Warrior;
         } else {
             return Bloodlines.Bloodline.Royal;
@@ -168,12 +210,16 @@ contract DigiDaigakuHeroes is AdventureERC721, ERC2981 {
     }
 
     /// @dev Determines number of slots required to track minted tokens across the max supply
-    function getNumberOfTokenTrackerSlots() internal pure returns (uint256 tokenTrackerSlotsRequired) {
+    function getNumberOfTokenTrackerSlots()
+        internal
+        pure
+        returns (uint256 tokenTrackerSlotsRequired)
+    {
         unchecked {
             // Add 1 because we are starting valid token id range at 1 instead of 0
             uint256 maxSupplyPlusOne = 1 + MAX_SUPPLY;
             tokenTrackerSlotsRequired = maxSupplyPlusOne / 256;
-            if(maxSupplyPlusOne % 256 > 0) {
+            if (maxSupplyPlusOne % 256 > 0) {
                 ++tokenTrackerSlotsRequired;
             }
         }

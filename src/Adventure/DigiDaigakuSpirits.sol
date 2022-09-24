@@ -35,14 +35,20 @@ contract DigiDaigakuSpirits is AdventureERC721, ERC2981 {
         nextTokenId = nextTokenId + batchSize;
 
         unchecked {
-            for(uint256 i = 0; i < batchSize; ++i) {
+            for (uint256 i = 0; i < batchSize; ++i) {
                 _mint(to[i], tokenIdToMint + i);
             }
         }
     }
 
     /// @dev Required to return baseTokenURI for tokenURI
-    function _baseURI() internal view virtual override returns (string memory) {
+    function _baseURI()
+        internal
+        view
+        virtual
+        override
+        returns (string memory)
+    {
         return baseTokenURI;
     }
 
@@ -61,7 +67,10 @@ contract DigiDaigakuSpirits is AdventureERC721, ERC2981 {
     }
 
     /// @notice Sets royalty information
-    function setRoyaltyInfo(address receiver, uint96 feeNumerator) external onlyOwner {
+    function setRoyaltyInfo(address receiver, uint96 feeNumerator)
+        external
+        onlyOwner
+    {
         require(feeNumerator <= MAX_ROYALTY_FEE_NUMERATOR, "Exceeds max royalty fee");
         _setDefaultRoyalty(receiver, feeNumerator);
 
@@ -69,7 +78,13 @@ contract DigiDaigakuSpirits is AdventureERC721, ERC2981 {
     }
 
     /// @notice Returns tokenURI if baseURI is set
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
         require(_exists(tokenId), "Nonexistent token");
 
         string memory baseURI = _baseURI();
@@ -78,7 +93,13 @@ contract DigiDaigakuSpirits is AdventureERC721, ERC2981 {
             : "";
     }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override (AdventureERC721, ERC2981) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override (AdventureERC721, ERC2981)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 }
