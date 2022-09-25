@@ -32,7 +32,9 @@ contract DigiSpiritBurner is AdventurePermissions {
     event SpiritDeposited(uint16 tokenId, address owner);
     event HeroMinted(uint16 spiritId, address owner);
 
-    constructor() {}
+    constructor() {
+        spiritToken.setAdventuresApprovedForAll(address(adventure), true);
+    }
 
     modifier onlyGenesisOwner(uint16 tokenId) {
         require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
@@ -122,7 +124,6 @@ contract DigiSpiritBurner is AdventurePermissions {
         onlySpiritOwner(spiritId)
     {
         genesisToken.approve(address(adventure), genesisId);
-        spiritToken.setAdventuresApprovedForAll(address(adventure), true);
         adventure.enterQuest(spiritId, genesisId);
         _spiritGenesisAdventurePair[spiritId] = genesisId;
     }
@@ -158,5 +159,7 @@ contract DigiSpiritBurner is AdventurePermissions {
 
         adventure.exitQuest(spiritId, true);
         heroToken.transferFrom(address(this), _msgSender(), spiritId);
+
+        emit HeroMinted(spiritId, _msgSender());
     }
 }
