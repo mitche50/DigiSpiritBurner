@@ -8,11 +8,10 @@ import "./Adventure/HeroAdventure.sol";
 
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract DigiSpiritBurner is Context, ReentrancyGuard {
+contract DigiSpiritBurner is Context {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -134,7 +133,7 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
      * @dev Requires the user to have waited the `HERO_QUEST_DURATION` from the HeroAdventure contract
      * @param spiritId ID of the spirit token to be burnt for a hero
      */
-    function mintHero(uint16 spiritId) external nonReentrant() {
+    function mintHero(uint16 spiritId) external {
         uint16 genesisId = _spiritData[spiritId].adventureGenesis;
         require(genesisId > 0, 'Spirit is not on a hero quest');
 
@@ -182,8 +181,6 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
         require(genesisToken.ownerOf(tokenId) == address(this), 'Genesis not in contract');
 
         uint256 toClaim = _genesisData[tokenId].claimableRewards;
-        _genesisData[tokenId].claimableRewards = 0;
-
         delete _genesisData[tokenId];
         _removeToken(tokenId, _depositedGenesisTokens);
 
@@ -234,8 +231,9 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
      * @notice if you decide to cancel before the quest is finished.
      * @param spiritId ID of the spirit token to be burnt for a hero
      * @param genesisId ID of the genesis token to be used
+     * @param maxHeroFee maximum amount of wETH to send to contract
      */
-    function enterHeroQuest(uint16 spiritId, uint16 genesisId)
+    function enterHeroQuest(uint16 spiritId, uint16 genesisId, uint256 maxHeroFee)
         external
         onlySpiritOwner(spiritId)
     {
@@ -245,7 +243,10 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
         _genesisData[genesisId].adventuringSpirit = spiritId;
 
         // Transfer wETH to the contract
+        require(maxHeroFee >= _genesisData[genesisId].heroFee, 'Hero fee > max you want to pay');
+        require(weth.allowance(_msgSender(), address(this)) >= _genesisData[genesisId].heroFee, 'WETH not approved');
         weth.safeTransferFrom(_msgSender(), address(this), _genesisData[genesisId].heroFee);
+        
         genesisToken.approve(address(adventure), genesisId);
         adventure.enterQuest(spiritId, genesisId);
     }
@@ -326,9 +327,10 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
      */
     function _removeToken(uint16 tokenId, uint16[] storage array) internal {
         uint16 tokenIndex = 2023;
-        for (uint16 i = 1; i <= array.length; i++) {
+        for (uint16 i = 0; i <= array.length; i++) {
             if (array[i] == tokenId){
                 tokenIndex = i;
+                break;
             }
         }
         require(tokenIndex < 2023, 'Token not found in array');

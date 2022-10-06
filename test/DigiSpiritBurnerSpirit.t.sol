@@ -92,7 +92,27 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositGenesis(testToken, testHeroFee);
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
+        vm.stopPrank();
+    }
+
+    function testEnterHeroQuestNoWethApproval() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+        assert(spiritToken.ownerOf(testToken) == address(burner));
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, testHeroFee);
+        assert(genesisToken.ownerOf(testToken) == address(burner));
+
+        uint256 claimableRewardsBeforeRevert = burner.getGenesisData(testToken).claimableRewards;
+
+        vm.expectRevert(bytes("WETH not approved"));
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
+
+        assert(burner.getGenesisData(testToken).claimableRewards == claimableRewardsBeforeRevert);
         vm.stopPrank();
     }
 
@@ -107,7 +127,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
 
         uint256 beforeQuitBalance = weth.balanceOf(testUser);
         uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -136,7 +156,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
 
         vm.expectRevert(bytes("Mint or quit quest to withdraw"));
         burner.withdrawSpirit(testToken);
@@ -157,7 +177,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -187,7 +207,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee * 2);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -205,7 +225,7 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositSpirit(testToken2);
 
         assert(spiritToken.ownerOf(testToken2) == address(burner));
-        burner.enterHeroQuest(testToken2, testToken);
+        burner.enterHeroQuest(testToken2, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -231,7 +251,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee * 2);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -249,7 +269,7 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositSpirit(testToken2);
 
         assert(spiritToken.ownerOf(testToken2) == address(burner));
-        burner.enterHeroQuest(testToken2, testToken);
+        burner.enterHeroQuest(testToken2, testToken, testHeroFee);
 
         uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
         burner.rageQuitHeroQuest(testToken2);
@@ -274,7 +294,7 @@ contract DigiSpiritBurnerTest is Test {
         weth.approve(address(burner), testHeroFee * 2);
 
         assert(spiritToken.ownerOf(testToken2) == address(burner));
-        burner.enterHeroQuest(testToken2, testToken);
+        burner.enterHeroQuest(testToken2, testToken, testHeroFee);
 
         uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
         burner.rageQuitHeroQuest(testToken2);
@@ -289,7 +309,7 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositSpirit(testToken);
         assert(spiritToken.ownerOf(testToken) == address(burner));
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
@@ -317,7 +337,7 @@ contract DigiSpiritBurnerTest is Test {
         weth.approve(address(burner), testHeroFee * 2);
 
         assert(spiritToken.ownerOf(testToken2) == address(burner));
-        burner.enterHeroQuest(testToken2, testToken);
+        burner.enterHeroQuest(testToken2, testToken, testHeroFee);
 
         uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
         burner.rageQuitHeroQuest(testToken2);
@@ -332,7 +352,7 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositSpirit(testToken2);
         assert(spiritToken.ownerOf(testToken2) == address(burner));
 
-        burner.enterHeroQuest(testToken2, testToken);
+        burner.enterHeroQuest(testToken2, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;

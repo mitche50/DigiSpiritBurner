@@ -39,7 +39,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
 
         vm.stopPrank();
     }

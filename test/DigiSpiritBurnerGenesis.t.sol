@@ -101,7 +101,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         uint256 beforeClaimBalance = weth.balanceOf(testUser);
@@ -130,7 +130,7 @@ contract DigiSpiritBurnerTest is Test {
 
         weth.approve(address(burner), testHeroFee);
 
-        burner.enterHeroQuest(testToken, testToken);
+        burner.enterHeroQuest(testToken, testToken, testHeroFee);
         vm.warp(block.timestamp + 1 days);
 
         vm.stopPrank();
