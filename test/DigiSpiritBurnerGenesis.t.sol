@@ -7,21 +7,30 @@ import "src/DigiSpiritBurner.sol";
 import "src/Adventure/DigiDaigaku.sol";
 import "src/Adventure/DigiDaigakuSpirits.sol";
 import "src/Token/IWETH.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract DigiSpiritBurnerTest is Test {
+    using SafeMath for uint256;
 
     address testUser = 0x76b2F9CAA443812D88693b86AdD2800F5F535C51;
     address badUser = 0x822a02E58919233821f4a5Bd5EfF4a214cCAB7AC;
+    address secondaryUser = 0xB573DB1b2Dc80dCB995a333aBAe20DF9fF6C751A;
     uint16 testToken = 467;
+    uint256 testHeroFee = 1e18;
 
     DigiSpiritBurner burner;
     DigiDaigaku genesisToken = DigiDaigaku(0xd1258DB6Ac08eB0e625B75b371C023dA478E94A9);
     DigiDaigakuSpirits spiritToken = DigiDaigakuSpirits(0xa8824EeE90cA9D2e9906D377D36aE02B1aDe5973);
 
-    IWETH weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address wethAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    IWETH weth = IWETH(wethAddress);
 
     function setUp() public {
         burner = new DigiSpiritBurner();
+
+        deal(wethAddress, testUser, 10e18);
+        deal(wethAddress, badUser, 10e18);
+        deal(wethAddress, secondaryUser, 10e18);
 
         vm.startPrank(testUser);
 
@@ -33,6 +42,7 @@ contract DigiSpiritBurnerTest is Test {
         assert(burner.getGenesisData(testToken).owner == testUser);
         assert(genesisToken.ownerOf(testToken) == address(burner));
         assert(burner.getGenesisData(testToken).heroFee == 1e18);
+        assert(burner.getGenesisDepositedArray()[0] == testToken);
 
         vm.stopPrank();
     }
@@ -81,6 +91,64 @@ contract DigiSpiritBurnerTest is Test {
         vm.stopPrank();
 
         assert(burner.getGenesisData(testToken).heroFee == 1e18);
+    }
+
+    function testGenesisRewardClaim() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+
+        weth.approve(address(burner), testHeroFee);
+
+        burner.enterHeroQuest(testToken, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 beforeClaimBalance = weth.balanceOf(testUser);
+
+        burner.mintHero(testToken);
+
+        uint256 claimableBalance = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.claimRewards(testToken);
+
+        assert(weth.balanceOf(testUser) == beforeClaimBalance + claimableBalance);
+        assert(burner.getGenesisData(testToken).claimableRewards == 0);
+
+        vm.stopPrank();
+    }
+
+    // Confirms that a genesis owner can trigger the mint of a hero if a secondary
+    // user is holding it hostage and still receive their fees
+    function testGenesisOwnerMintHero() public {
+        vm.prank(testUser);
+        spiritToken.transferFrom(testUser, secondaryUser, testToken);
+
+        vm.startPrank(secondaryUser);
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+
+        weth.approve(address(burner), testHeroFee);
+
+        burner.enterHeroQuest(testToken, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.stopPrank();
+
+        vm.startPrank(testUser);
+
+        uint256 beforeClaimBalance = weth.balanceOf(testUser);
+
+        burner.mintHero(testToken);
+
+        uint256 claimableBalance = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.claimRewards(testToken);
+
+        assert(weth.balanceOf(testUser) == beforeClaimBalance + claimableBalance);
+        assert(burner.getGenesisData(testToken).claimableRewards == 0);
+
+        vm.stopPrank();
     }
     
 }

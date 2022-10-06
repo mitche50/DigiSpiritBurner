@@ -24,10 +24,13 @@ contract DigiSpiritBurnerTest is Test {
     DigiDaigakuHeroes heroToken = DigiDaigakuHeroes(0xA225632b2EBc32B9f4278fc8E3FE5C6f6496D970);
     DigiDaigakuSpirits spiritToken = DigiDaigakuSpirits(0xa8824EeE90cA9D2e9906D377D36aE02B1aDe5973);
 
-    IWETH weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address wethAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    IWETH weth = IWETH(wethAddress);
 
     function setUp() public {
         burner = new DigiSpiritBurner();
+        deal(wethAddress, testUser, 10e18);
+        deal(wethAddress, badUser, 10e18);
     }
 
 
@@ -78,8 +81,6 @@ contract DigiSpiritBurnerTest is Test {
     function testEnterHeroQuest() public {
         vm.startPrank(testUser);
 
-        // wrap ETH
-        weth.deposit{value:testHeroFee}();
         weth.approve(address(burner), testHeroFee);
 
         spiritToken.approve(address(burner), testToken);
@@ -103,8 +104,6 @@ contract DigiSpiritBurnerTest is Test {
         genesisToken.approve(address(burner), testToken);
         burner.depositGenesis(testToken, testHeroFee);
 
-        // wrap ETH
-        weth.deposit{value:testHeroFee}();
         weth.approve(address(burner), testHeroFee);
 
         burner.enterHeroQuest(testToken, testToken);
@@ -136,8 +135,6 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositGenesis(testToken, 1e18);
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
-        // wrap ETH
-        weth.deposit{value:testHeroFee}();
         weth.approve(address(burner), testHeroFee);
 
         burner.enterHeroQuest(testToken, testToken);
