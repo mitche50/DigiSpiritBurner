@@ -42,8 +42,8 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
 
     uint16[] public depositedGenesisTokens;
 
-    uint256 private _contractClaimableRewards;
-    address private contractClaimer;
+    uint256 public contractClaimableRewards;
+    address public contractClaimer;
 
     uint256 public constant MAX_BPS = 10_000;
     uint256 public constant CONTRACT_FEE_BPS = 250;
@@ -72,10 +72,19 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
 
     // ***************** VIEW FUNCTIONS *****************
 
+    /**
+     * @notice View function to return Genesis Data struct for provided token ID
+     * @param tokenId Genesis ID to return data for
+     * @return GenesisData Struct containing data for the provided genesis token ID
+     */
     function getGenesisData(uint16 tokenId) external view returns (GenesisData memory) {
         return genesisData[tokenId];
     }
 
+    /**
+     * @notice View function to return the full list of deposited genesis tokens
+     * @return uint16[] Array containing all deposited genesis tokens
+     */
     function getGenesisDepositedArray() external view returns (uint16[] memory) {
         return depositedGenesisTokens;
     }
@@ -110,7 +119,6 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
             claimableRewards: 0,
             adventuringSpirit: 0
         });
-        genesisToken.approve(address(adventure), tokenId);
         depositedGenesisTokens.push(tokenId);
 
         emit GenesisDeposited(tokenId, _msgSender(), fee);
@@ -131,11 +139,12 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
         
         genesisData[genesisId].pendingRewards -= fee;
         genesisData[genesisId].claimableRewards += fee - contractFee;
-        _contractClaimableRewards += contractFee;
+        contractClaimableRewards += contractFee;
 
         adventure.exitQuest(spiritId, true);
         heroToken.transferFrom(address(this), spiritData[spiritId].owner, spiritId);
         delete spiritData[spiritId];
+        genesisData[genesisId].adventuringSpirit = 0;
 
         emit HeroMinted(spiritId, spiritData[spiritId].owner);
     }
@@ -188,7 +197,6 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
         external
         onlyGenesisOwner(tokenId)
     {
-        require(genesisToken.ownerOf(tokenId) == address(this), "Genesis must be home to update fee");
         uint256 oldFee = genesisData[tokenId].heroFee;
         genesisData[tokenId].heroFee = newFee;
 
@@ -228,6 +236,7 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
         // Assign pending rewards to genesis 
         genesisData[genesisId].pendingRewards += genesisData[genesisId].heroFee;
 
+        genesisToken.approve(address(adventure), genesisId);
         adventure.enterQuest(spiritId, genesisId);
         spiritData[spiritId].adventureGenesis = genesisId;
         genesisData[genesisId].adventuringSpirit = spiritId;
@@ -252,13 +261,15 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
 
         genesisData[genesisId].pendingRewards -= genesisData[genesisId].heroFee;
         genesisData[genesisId].claimableRewards += halvedFee - contractFee;
-        _contractClaimableRewards += contractFee;
+        contractClaimableRewards += contractFee;
 
         adventure.exitQuest(spiritId, false);
 
+        delete spiritData[spiritId];
+        genesisData[genesisId].adventuringSpirit = 0;
+
         // Return spirit token and remaining wETH to owner
         spiritToken.transferFrom(address(this), _msgSender(), spiritId);
-        delete spiritData[spiritId];
         weth.transferFrom(address(this), _msgSender(), genesisData[genesisId].heroFee - halvedFee);
     }
 
@@ -267,8 +278,9 @@ contract DigiSpiritBurner is Context, ReentrancyGuard {
      */
      function claimContractRewards() external {
         require(_msgSender() == contractClaimer, 'Not contract claimer');
-        uint256 toClaim = _contractClaimableRewards;
-        _contractClaimableRewards = 0;
+        require(contractClaimableRewards > 0, 'No claimable rewards');
+        uint256 toClaim = contractClaimableRewards;
+        contractClaimableRewards = 0;
         weth.transferFrom(address(this), contractClaimer, toClaim);
 
         emit RewardClaimed(_msgSender(), toClaim);

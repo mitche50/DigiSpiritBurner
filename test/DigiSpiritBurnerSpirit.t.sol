@@ -16,6 +16,7 @@ contract DigiSpiritBurnerTest is Test {
     address testUser = 0x76b2F9CAA443812D88693b86AdD2800F5F535C51;
     address badUser = 0x822a02E58919233821f4a5Bd5EfF4a214cCAB7AC;
     uint16 testToken = 467;
+    uint16 testToken2 = 575;
     uint256 testHeroFee = 1e18;
 
     DigiSpiritBurner burner;
@@ -113,13 +114,32 @@ contract DigiSpiritBurnerTest is Test {
 
         burner.rageQuitHeroQuest(testToken);
 
-        // confirm balance increase for testUser
         assert(weth.balanceOf(testUser) == beforeQuitBalance + (testHeroFee / 2));
-        // confirm claimableRewards increase for testUser
         assert(
             burner.getGenesisData(testToken).claimableRewards == beforeQuitClaimable + 
             (testHeroFee / 2) - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
         );
+
+        vm.stopPrank();
+    }
+
+    // Confirms spirit holders cannot withdraw while they are on a quest
+    // They will need to rageQuit or complete their quest to complete payment
+    function testWithdrawWhileOnQuest() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+        
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, testHeroFee);
+
+        weth.approve(address(burner), testHeroFee);
+
+        burner.enterHeroQuest(testToken, testToken);
+
+        vm.expectRevert(bytes("Mint or quit quest to withdraw"));
+        burner.withdrawSpirit(testToken);
 
         vm.stopPrank();
     }
@@ -152,6 +172,179 @@ contract DigiSpiritBurnerTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function testMultipleHeroMints() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+        assert(spiritToken.ownerOf(testToken) == address(burner));
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+        assert(genesisToken.ownerOf(testToken) == address(burner));
+
+        weth.approve(address(burner), testHeroFee * 2);
+
+        burner.enterHeroQuest(testToken, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.mintHero(testToken);
+        assert(heroToken.ownerOf(testToken) == testUser);
+
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+
+        spiritToken.approve(address(burner), testToken2);
+        burner.depositSpirit(testToken2);
+
+        assert(spiritToken.ownerOf(testToken2) == address(burner));
+        burner.enterHeroQuest(testToken2, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
+        burner.mintHero(testToken2);
+        assert(heroToken.ownerOf(testToken) == testUser);
+
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+    }
+
+    function testHeroMintThenRageQuit() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+        assert(spiritToken.ownerOf(testToken) == address(burner));
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+        assert(genesisToken.ownerOf(testToken) == address(burner));
+
+        weth.approve(address(burner), testHeroFee * 2);
+
+        burner.enterHeroQuest(testToken, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.mintHero(testToken);
+        assert(heroToken.ownerOf(testToken) == testUser);
+
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+
+        spiritToken.approve(address(burner), testToken2);
+        burner.depositSpirit(testToken2);
+
+        assert(spiritToken.ownerOf(testToken2) == address(burner));
+        burner.enterHeroQuest(testToken2, testToken);
+
+        uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
+        burner.rageQuitHeroQuest(testToken2);
+        assert(spiritToken.ownerOf(testToken2) == testUser);
+
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeQuitClaimable + 
+            (testHeroFee / 2) - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+    }
+
+    function testRageQuitThenHeroMintDifferentToken() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken2);
+        burner.depositSpirit(testToken2);
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+        assert(genesisToken.ownerOf(testToken) == address(burner));
+
+        weth.approve(address(burner), testHeroFee * 2);
+
+        assert(spiritToken.ownerOf(testToken2) == address(burner));
+        burner.enterHeroQuest(testToken2, testToken);
+
+        uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
+        burner.rageQuitHeroQuest(testToken2);
+        assert(spiritToken.ownerOf(testToken2) == testUser);
+
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeQuitClaimable + 
+            (testHeroFee / 2) - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+
+        spiritToken.approve(address(burner), testToken);
+        burner.depositSpirit(testToken);
+        assert(spiritToken.ownerOf(testToken) == address(burner));
+
+        burner.enterHeroQuest(testToken, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.mintHero(testToken);
+        assert(heroToken.ownerOf(testToken) == testUser);
+
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+    }
+
+    function testRageQuitThenHeroMintSameToken() public {
+        vm.startPrank(testUser);
+
+        spiritToken.approve(address(burner), testToken2);
+        burner.depositSpirit(testToken2);
+
+        genesisToken.approve(address(burner), testToken);
+        burner.depositGenesis(testToken, 1e18);
+        assert(genesisToken.ownerOf(testToken) == address(burner));
+
+        weth.approve(address(burner), testHeroFee * 2);
+
+        assert(spiritToken.ownerOf(testToken2) == address(burner));
+        burner.enterHeroQuest(testToken2, testToken);
+
+        uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
+        burner.rageQuitHeroQuest(testToken2);
+        assert(spiritToken.ownerOf(testToken2) == testUser);
+
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeQuitClaimable + 
+            (testHeroFee / 2) - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+
+        spiritToken.approve(address(burner), testToken2);
+        burner.depositSpirit(testToken2);
+        assert(spiritToken.ownerOf(testToken2) == address(burner));
+
+        burner.enterHeroQuest(testToken2, testToken);
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
+
+        burner.mintHero(testToken2);
+        assert(heroToken.ownerOf(testToken2) == testUser);
+
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
     }
     
 }
