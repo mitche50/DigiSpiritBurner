@@ -1,0 +1,16 @@
+{
+    "goerli": {
+        "Genesis": "0x2FA2dE63B2e72D71B48f7688518E306bDd582d85",
+        "Spirits": "0xFad153B5d16405438a4e20c6d8dadA73Fb9FF54e",
+        "Heroes": "0xc43d95839DD258ecbCCeE8629E332E14de0fef65",
+        "HeroAdventure": "0xC93F7Fd9be73f14E8419e87014A09E6C88cEdCe7",
+        "Burner": "0x4c236E8DFc65D13d10872ffF93758F8bB25756e6"
+    },
+    "mainnet": {
+        "Genesis": "0xd1258DB6Ac08eB0e625B75b371C023dA478E94A9",
+        "Spirits": "0xa8824EeE90cA9D2e9906D377D36aE02B1aDe5973",
+        "Heroes": "0xA225632b2EBc32B9f4278fc8E3FE5C6f6496D970",
+        "HeroAdventure": "0xE60fE8C4C60Fd97f939F5136cCeb7c41EaaA624d",
+        "Burner": ""
+    }
+}

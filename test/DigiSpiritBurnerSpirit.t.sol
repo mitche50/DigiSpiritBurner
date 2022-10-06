@@ -29,7 +29,7 @@ contract DigiSpiritBurnerTest is Test {
     IWETH weth = IWETH(wethAddress);
 
     function setUp() public {
-        burner = new DigiSpiritBurner();
+        burner = new DigiSpiritBurner(0xd1258DB6Ac08eB0e625B75b371C023dA478E94A9, 0xA225632b2EBc32B9f4278fc8E3FE5C6f6496D970, 0xa8824EeE90cA9D2e9906D377D36aE02B1aDe5973, 0xE60fE8C4C60Fd97f939F5136cCeb7c41EaaA624d, 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
         deal(wethAddress, testUser, 10e18);
         deal(wethAddress, badUser, 10e18);
     }
