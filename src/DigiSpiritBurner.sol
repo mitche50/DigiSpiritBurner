@@ -8,9 +8,10 @@ import "./Adventure/HeroAdventure.sol";
 
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract DigiSpiritBurner is Context {
+contract DigiSpiritBurner is Context, ReentrancyGuard {
     using SafeMath for uint256;
 
     DigiDaigaku genesisToken =
@@ -23,16 +24,22 @@ contract DigiSpiritBurner is Context {
         HeroAdventure(0xE60fE8C4C60Fd97f939F5136cCeb7c41EaaA624d);
     ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    mapping(uint16 => uint256) public heroFee;
+    struct GenesisData {
+        address owner;
+        uint256 heroFee;
+        uint256 pendingRewards;
+        uint256 claimableRewards;
+        uint16 adventuringSpirit;
+    }
 
-    mapping(uint16 => bool) public genesisIsDeposited;
-    mapping(uint16 => address) private _genesisOwner;
+    struct SpiritData {
+        address owner;
+        uint16 adventureGenesis;
+    }
 
-    mapping(uint16 => address) private _spiritOwner;
-    mapping(uint16 => uint16) private _spiritGenesisAdventurePair;
+    mapping(uint16 => GenesisData) public genesisData;
+    mapping(uint16 => SpiritData) public spiritData;
 
-    mapping(address => uint256) public pendingRewards;
-    mapping(address => uint256) public claimableRewards;
     uint256 private _contractClaimableRewards;
     address contractClaimer;
 
@@ -52,27 +59,35 @@ contract DigiSpiritBurner is Context {
     }
 
     modifier onlyGenesisOwner(uint16 tokenId) {
-        require(_msgSender() == _genesisOwner[tokenId], "Not original owner of genesis");
+        require(_msgSender() == genesisData[tokenId].owner, "Not original owner of genesis");
         _;
     }
 
     modifier onlySpiritOwner(uint16 tokenId) {
-        require(_msgSender() == _spiritOwner[tokenId], "Not original owner of spirit");
+        require(_msgSender() == spiritData[tokenId].owner, "Not original owner of spirit");
         _;
     }
+
+    function getGenesisData(uint16 tokenId) external view returns (GenesisData memory) {
+        return (genesisData[tokenId]);
+    }
+
 
     /**
      * @notice Deposits genesis token into contract for "purposes"
      * @param tokenId ID of genesis token to deposit
-     * @param fee Fee to charge users for breeding with your genesis NFT
+     * @param fee Fee to charge users for breeding with your genesis NFT (in BPS)
      */
     function depositGenesis(uint16 tokenId, uint256 fee) external {
         genesisToken.transferFrom(_msgSender(), address(this), tokenId);
-        _genesisOwner[tokenId] = _msgSender();
-        heroFee[tokenId] = fee;
-        genesisIsDeposited[tokenId] = true;
-        claimableRewards[_msgSender()] = 0;
-        pendingRewards[_msgSender()] = 0;
+        genesisData[tokenId] = GenesisData({
+            heroFee: fee,
+            owner: _msgSender(),
+            pendingRewards: 0,
+            claimableRewards: 0,
+            adventuringSpirit: 0
+        });
+        genesisToken.approve(address(adventure), tokenId);
 
         emit GenesisDeposited(tokenId, _msgSender(), fee);
     }
@@ -86,17 +101,16 @@ contract DigiSpiritBurner is Context {
         onlyGenesisOwner(tokenId)
     {
         require(genesisToken.ownerOf(tokenId) == address(this), 'Genesis not in contract');
+        genesisToken.setApprovalForAll(address(adventure), false);
         genesisToken.transferFrom(address(this), _msgSender(), tokenId);
 
-        uint256 toClaim = claimableRewards[_msgSender()];
-        claimableRewards[_msgSender()] = 0;
+        uint256 toClaim = genesisData[tokenId].claimableRewards;
+        genesisData[tokenId].claimableRewards = 0;
         if(toClaim > 0) {
             weth.transferFrom(address(this), _msgSender(), toClaim);
         }
 
-        _genesisOwner[tokenId] = address(0);
-        heroFee[tokenId] = 0;
-        genesisIsDeposited[tokenId] = false;
+        delete genesisData[tokenId];
 
         emit GenesisWithdrawn(tokenId, _msgSender());
     }
@@ -111,8 +125,8 @@ contract DigiSpiritBurner is Context {
         onlyGenesisOwner(tokenId)
     {
         require(genesisToken.ownerOf(tokenId) == address(this), "Genesis must be home to update fee");
-        uint256 oldFee = heroFee[tokenId];
-        heroFee[tokenId] = newFee;
+        uint256 oldFee = genesisData[tokenId].heroFee;
+        genesisData[tokenId].heroFee = newFee;
 
         emit GenesisFeeUpdated(tokenId, oldFee, newFee);
     }
@@ -123,7 +137,10 @@ contract DigiSpiritBurner is Context {
      */
     function depositSpirit(uint16 tokenId) external {
         spiritToken.transferFrom(_msgSender(), address(this), tokenId);
-        _spiritOwner[tokenId] = _msgSender();
+        spiritData[tokenId] = SpiritData({
+            owner: _msgSender(),
+            adventureGenesis: 0
+        });
 
         emit SpiritDeposited(tokenId, _msgSender());
     }
@@ -136,8 +153,10 @@ contract DigiSpiritBurner is Context {
         external
         onlySpiritOwner(tokenId)
     {
-        require(_spiritGenesisAdventurePair[tokenId] == 0, 'Mint or quit quest to withdraw');
+        require(spiritData[tokenId].adventureGenesis == 0, 'Mint or quit quest to withdraw');
         spiritToken.transferFrom(address(this), _msgSender(), tokenId);
+        
+        delete spiritData[tokenId];
     }
 
     /**
@@ -152,14 +171,14 @@ contract DigiSpiritBurner is Context {
         onlySpiritOwner(spiritId)
     {
         // Transfer wETH to the contract
-        weth.transferFrom(_msgSender(), address(this), heroFee[genesisId]);
+        weth.transferFrom(_msgSender(), address(this), genesisData[genesisId].heroFee);
         
         // Assign pending rewards to genesis 
-        pendingRewards[_genesisOwner[genesisId]] += heroFee[genesisId];
+        genesisData[genesisId].pendingRewards += genesisData[genesisId].heroFee;
 
-        genesisToken.approve(address(adventure), genesisId);
         adventure.enterQuest(spiritId, genesisId);
-        _spiritGenesisAdventurePair[spiritId] = genesisId;
+        spiritData[spiritId].adventureGenesis = genesisId;
+        genesisData[genesisId].adventuringSpirit = spiritId;
     }
 
     /**
@@ -173,23 +192,22 @@ contract DigiSpiritBurner is Context {
         onlySpiritOwner(spiritId)
     {
         // Assign claimable rewards to Genesis Holder (halved due to not getting hero)
-        uint16 genesisId = _spiritGenesisAdventurePair[spiritId];
+        uint16 genesisId = spiritData[spiritId].adventureGenesis;
         require(genesisId > 0, 'Spirit is not on a hero quest');
 
-        address genesisHolder = _genesisOwner[genesisId];
-        uint256 fee = heroFee[genesisId] / 2;
-        uint256 contractFee = _calculateFee(fee, CONTRACT_FEE_BPS);
+        uint256 halvedFee = genesisData[genesisId].heroFee / 2;
+        uint256 contractFee = _calculateFee(genesisData[genesisId].heroFee, CONTRACT_FEE_BPS);
 
-        pendingRewards[genesisHolder] -= fee;
-        claimableRewards[genesisHolder] += fee - contractFee;
+        genesisData[genesisId].pendingRewards -= genesisData[genesisId].heroFee;
+        genesisData[genesisId].claimableRewards += halvedFee - contractFee;
         _contractClaimableRewards += contractFee;
 
         adventure.exitQuest(spiritId, false);
-        delete _spiritGenesisAdventurePair[spiritId];
 
         // Return spirit token and remaining wETH to owner
         spiritToken.transferFrom(address(this), _msgSender(), spiritId);
-        weth.transferFrom(address(this), _msgSender(), heroFee[genesisId] - fee);
+        delete spiritData[spiritId];
+        weth.transferFrom(address(this), _msgSender(), genesisData[genesisId].heroFee - halvedFee);
     }
 
     /**
@@ -198,43 +216,42 @@ contract DigiSpiritBurner is Context {
      * @dev Requires the user to have waited the `HERO_QUEST_DURATION` from the HeroAdventure contract
      * @param spiritId ID of the spirit token to be burnt for a hero
      */
-    function mintHero(uint16 spiritId) external {
-        // Transfer wETH Fee to Genesis Holder
-        uint16 genesisId = _spiritGenesisAdventurePair[spiritId];
+    function mintHero(uint16 spiritId) external nonReentrant() {
+        uint16 genesisId = spiritData[spiritId].adventureGenesis;
         require(genesisId > 0, 'Spirit is not on a hero quest');
-        address genesisHolder = _genesisOwner[genesisId];
 
-        uint256 fee = heroFee[genesisId];
+        uint256 fee = genesisData[genesisId].heroFee;
         uint256 contractFee = _calculateFee(fee, CONTRACT_FEE_BPS);
         
-        pendingRewards[genesisHolder] -= fee;
-        claimableRewards[genesisHolder] += fee - contractFee;
+        genesisData[genesisId].pendingRewards -= fee;
+        genesisData[genesisId].claimableRewards += fee - contractFee;
         _contractClaimableRewards += contractFee;
 
         adventure.exitQuest(spiritId, true);
-        heroToken.transferFrom(address(this), _spiritOwner[spiritId], spiritId);
-        delete _spiritGenesisAdventurePair[spiritId];
+        heroToken.transferFrom(address(this), spiritData[spiritId].owner, spiritId);
+        delete spiritData[spiritId];
 
-        emit HeroMinted(spiritId, _spiritOwner[spiritId]);
+        emit HeroMinted(spiritId, spiritData[spiritId].owner);
     }
 
     /**
-     * @notice Claim the rewards allocated to the caller's address
+     * @notice Claim the rewards allocated to the genesis token's owner
+     * @param genesisId ID of genesis token's rewards to claim
      */
-    function claimRewards() external {
-        require(claimableRewards[_msgSender()] > 0, 'No claimable rewards');
-        uint256 toClaim = claimableRewards[_msgSender()];
-        delete claimableRewards[_msgSender()];
-        weth.transferFrom(address(this), _msgSender(), toClaim);
+    function claimRewards(uint16 genesisId) external {
+        require(genesisData[genesisId].claimableRewards > 0, 'No claimable rewards');
+        uint256 toClaim = genesisData[genesisId].claimableRewards;
+        genesisData[genesisId].claimableRewards = 0;
+        weth.transferFrom(address(this), genesisData[genesisId].owner, toClaim);
 
-        emit RewardClaimed(_msgSender(), toClaim);
+        emit RewardClaimed(genesisData[genesisId].owner, toClaim);
     }
 
     /**
      * @notice Claim the rewards allocated to the contract
      */
      function claimContractRewards() external {
-        require(_msgSender() == contractClaimer, 'Only contract claimer');
+        require(_msgSender() == contractClaimer, 'Not contract claimer');
         uint256 toClaim = _contractClaimableRewards;
         _contractClaimableRewards = 0;
         weth.transferFrom(address(this), contractClaimer, toClaim);
@@ -246,7 +263,7 @@ contract DigiSpiritBurner is Context {
      * @notice Update the contract claimer
      */
      function updateContractClaimer(address newClaimer) external {
-        require(_msgSender() == contractClaimer, 'Only contract claimer');
+        require(_msgSender() == contractClaimer, 'Not contract claimer');
         contractClaimer = newClaimer;
      }
 

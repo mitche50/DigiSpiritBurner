@@ -8,12 +8,15 @@ import 'src/Adventure/DigiDaigakuHeroes.sol';
 import "src/Adventure/DigiDaigakuSpirits.sol";
 import 'src/Adventure/HeroAdventure.sol';
 import "src/Token/IWETH.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract DigiSpiritBurnerTest is Test {
+    using SafeMath for uint256;
 
     address testUser = 0x76b2F9CAA443812D88693b86AdD2800F5F535C51;
     address badUser = 0x822a02E58919233821f4a5Bd5EfF4a214cCAB7AC;
     uint16 testToken = 467;
+    uint256 testHeroFee = 1e18;
 
     DigiSpiritBurner burner;
     HeroAdventure adventure = HeroAdventure(0xE60fE8C4C60Fd97f939F5136cCeb7c41EaaA624d);
@@ -75,12 +78,16 @@ contract DigiSpiritBurnerTest is Test {
     function testEnterHeroQuest() public {
         vm.startPrank(testUser);
 
+        // wrap ETH
+        weth.deposit{value:testHeroFee}();
+        weth.approve(address(burner), testHeroFee);
+
         spiritToken.approve(address(burner), testToken);
         burner.depositSpirit(testToken);
         assert(spiritToken.ownerOf(testToken) == address(burner));
 
         genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
+        burner.depositGenesis(testToken, testHeroFee);
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
         burner.enterHeroQuest(testToken, testToken);
@@ -94,15 +101,26 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositSpirit(testToken);
         
         genesisToken.approve(address(burner), testToken);
-        burner.depositGenesis(testToken, 1e18);
+        burner.depositGenesis(testToken, testHeroFee);
+
+        // wrap ETH
+        weth.deposit{value:testHeroFee}();
+        weth.approve(address(burner), testHeroFee);
 
         burner.enterHeroQuest(testToken, testToken);
 
-        // wrap ETH
-        weth.deposit{value:5e17}();
-        weth.approve(address(burner), 5e17);
+        uint256 beforeQuitBalance = weth.balanceOf(testUser);
+        uint256 beforeQuitClaimable = burner.getGenesisData(testToken).claimableRewards;
 
         burner.rageQuitHeroQuest(testToken);
+
+        // confirm balance increase for testUser
+        assert(weth.balanceOf(testUser) == beforeQuitBalance + (testHeroFee / 2));
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeQuitClaimable + 
+            (testHeroFee / 2) - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
 
         vm.stopPrank();
     }
@@ -118,37 +136,25 @@ contract DigiSpiritBurnerTest is Test {
         burner.depositGenesis(testToken, 1e18);
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
+        // wrap ETH
+        weth.deposit{value:testHeroFee}();
+        weth.approve(address(burner), testHeroFee);
+
         burner.enterHeroQuest(testToken, testToken);
         vm.warp(block.timestamp + 1 days);
 
-        // wrap ETH
-        weth.deposit{value:1e18}();
-        weth.approve(address(burner), 1e18);
+        uint256 beforeMintClaimable = burner.getGenesisData(testToken).claimableRewards;
 
         burner.mintHero(testToken);
         assert(heroToken.ownerOf(testToken) == testUser);
 
+        // confirm claimableRewards increase for testUser
+        assert(
+            burner.getGenesisData(testToken).claimableRewards == beforeMintClaimable + 
+            testHeroFee - testHeroFee.mul(burner.CONTRACT_FEE_BPS()).div(burner.MAX_BPS())
+        );
+
         vm.stopPrank();
     }
-
-    // TODO: Finish mint hero function and write tests
-    // function testMintHero() public {
-    //     vm.startPrank(testUser);
-
-    //     // deposit genesis
-    //     genesisToken.approve(address(burner), testToken);
-    //     burner.depositGenesis(testToken, 1e18);
-        
-    //     // deposit spirit
-    //     spiritToken.approve(address(burner), testToken);
-    //     burner.depositSpirit(testToken);
-
-    //     // //wrap ETH
-    //     weth.deposit{value:1e18}();
-    //     weth.approve(address(burner), 1e18);
-
-    //     burner.mintHero(testToken, testToken);
-
-    // }
     
 }

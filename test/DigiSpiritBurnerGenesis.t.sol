@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import "src/DigiSpiritBurner.sol";
 import "src/Adventure/DigiDaigaku.sol";
 import "src/Adventure/DigiDaigakuSpirits.sol";
@@ -24,14 +25,14 @@ contract DigiSpiritBurnerTest is Test {
 
         vm.startPrank(testUser);
 
-        assert(!burner.genesisIsDeposited(testToken));
+        assert(burner.getGenesisData(testToken).owner == address(0));
 
         genesisToken.approve(address(burner), testToken);
         burner.depositGenesis(testToken, 1e18);
 
-        assert(burner.genesisIsDeposited(testToken));
+        assert(burner.getGenesisData(testToken).owner == testUser);
         assert(genesisToken.ownerOf(testToken) == address(burner));
-        assert(burner.heroFee(testToken) == 1e18);
+        assert(burner.getGenesisData(testToken).heroFee == 1e18);
 
         vm.stopPrank();
     }
@@ -39,12 +40,12 @@ contract DigiSpiritBurnerTest is Test {
     function testGenesisWithdrawal() public {
         vm.startPrank(testUser);
 
-        assert(burner.genesisIsDeposited(testToken));
+        assert(burner.getGenesisData(testToken).owner != address(0));
         assert(genesisToken.ownerOf(testToken) == address(burner));
 
         burner.withdrawGenesis(testToken);
 
-        assert(!burner.genesisIsDeposited(testToken));
+        assert(burner.getGenesisData(testToken).owner == address(0));
         assert(genesisToken.ownerOf(testToken) == testUser);
 
         vm.stopPrank();
@@ -62,11 +63,11 @@ contract DigiSpiritBurnerTest is Test {
     function testGenesisFeeChange() public {
         vm.startPrank(testUser);
 
-        assert(burner.heroFee(testToken) == 1e18);
+        assert(burner.getGenesisData(testToken).heroFee == 1e18);
 
         burner.updateGenesisFee(testToken, 2e18);
 
-        assert(burner.heroFee(testToken) == 2e18);
+        assert(burner.getGenesisData(testToken).heroFee == 2e18);
 
         vm.stopPrank();
     }
@@ -79,7 +80,7 @@ contract DigiSpiritBurnerTest is Test {
 
         vm.stopPrank();
 
-        assert(burner.heroFee(testToken) == 1e18);
+        assert(burner.getGenesisData(testToken).heroFee == 1e18);
     }
     
 }
