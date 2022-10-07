@@ -61,6 +61,7 @@ contract DigiSpiritBurner is Context {
         weth = IERC20(_weth);
 
         spiritToken.setAdventuresApprovedForAll(address(adventure), true);
+        genesisToken.setApprovalForAll(address(adventure), true);
     }
 
     modifier onlyGenesisOwner(uint16 tokenId) {
@@ -188,7 +189,6 @@ contract DigiSpiritBurner is Context {
             weth.safeTransferFrom(address(this), _msgSender(), toClaim);
         }
 
-        genesisToken.setApprovalForAll(address(adventure), false);
         genesisToken.transferFrom(address(this), _msgSender(), tokenId);
 
         emit GenesisWithdrawn(tokenId, _msgSender());
@@ -246,8 +246,7 @@ contract DigiSpiritBurner is Context {
         require(maxHeroFee >= _genesisData[genesisId].heroFee, 'Hero fee > max you want to pay');
         require(weth.allowance(_msgSender(), address(this)) >= _genesisData[genesisId].heroFee, 'WETH not approved');
         weth.safeTransferFrom(_msgSender(), address(this), _genesisData[genesisId].heroFee);
-        
-        genesisToken.approve(address(adventure), genesisId);
+
         adventure.enterQuest(spiritId, genesisId);
     }
 
